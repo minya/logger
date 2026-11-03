@@ -155,17 +155,14 @@ func addCallerToContext(ctx zerolog.Context) zerolog.Context {
 	return ctx
 }
 
-// processArgs formats the message printf-style. Every caller passes a
-// format plus its arguments (go vet checks them as printf wrappers); a
-// message without arguments is logged as is, so a literal % needs no
-// escaping. There is no key/value mode: picking a mode by whether msg
-// contains "%" mangled messages such as "100% done" and dropped odd args.
+// processArgs formats the message printf-style, with or without arguments.
+// go vet checks every call as a printf wrapper, so callers write a literal
+// percent sign as %% even when there are no arguments; formatting always
+// turns it back into %. There is no key/value mode: picking a mode by
+// whether msg contains "%" mangled messages such as "100% done" and
+// dropped odd args.
 func processArgs(evt *zerolog.Event, msg string, args ...interface{}) {
-	if len(args) > 0 {
-		evt.Msgf(msg, args...)
-		return
-	}
-	evt.Msg(msg)
+	evt.Msgf(msg, args...)
 }
 
 // Debug logs a debug message

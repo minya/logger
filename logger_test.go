@@ -37,6 +37,9 @@ func TestMessagesArePrintfFormatted(t *testing.T) {
 		want string
 	}{
 		{func() { Warn("torrent %s at %d%%", "x", 50) }, "torrent x at 50%"},
+		// F132: vet requires %% even without arguments; it must print as %.
+		{func() { Info("progress 100%% done") }, "progress 100% done"},
+		{func() { Info("plain message") }, "plain message"},
 		{func() { Error(errors.New("e"), "Got value %d", 42) }, "Got value 42"},
 	} {
 		tc.log()
