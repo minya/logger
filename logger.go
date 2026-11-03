@@ -66,11 +66,10 @@ func InitLogger(cfg Config) {
 		// Set global time format for all loggers
 		zerolog.TimeFieldFormat = cfg.TimeFormat
 
-		// Set global log level - this affects ALL zerolog instances
-		level := zerolog.InfoLevel
-		if lvl, ok := Levels[strings.ToLower(cfg.Level)]; ok {
-			level = lvl
-		}
+		// Set global log level - this affects ALL zerolog instances.
+		// An unknown level (a typo in TGT_LOGLEVEL) falls back to info, and
+		// says so once the logger exists, instead of passing silently.
+		level, levelErr := parseLevel(cfg.Level)
 		zerolog.SetGlobalLevel(level)
 
 		// Create and configure the logger
@@ -95,7 +94,31 @@ func InitLogger(cfg Config) {
 		// This ensures ALL code using either one will get the same configuration
 		DefaultLogger = logger
 		log.Logger = logger
+		if levelErr != nil {
+			DefaultLogger.Warn().Err(levelErr).Msg("unknown log level; using info")
+		}
 	})
+}
+
+// parseLevel maps a level name (case-insensitive; also "trace", "warning",
+// "disabled") to a zerolog level. An empty name is info; an unknown one is
+// info plus an error.
+func parseLevel(name string) (zerolog.Level, error) {
+	name = strings.ToLower(strings.TrimSpace(name))
+	switch name {
+	case "":
+		return zerolog.InfoLevel, nil
+	case "warning":
+		return zerolog.WarnLevel, nil
+	}
+	if lvl, ok := Levels[name]; ok {
+		return lvl, nil
+	}
+	lvl, err := zerolog.ParseLevel(name)
+	if err != nil || lvl == zerolog.NoLevel {
+		return zerolog.InfoLevel, fmt.Errorf("unknown log level %q", name)
+	}
+	return lvl, nil
 }
 
 // GetLogger returns a contextualized logger with the component field set
@@ -132,20 +155,17 @@ func addCallerToContext(ctx zerolog.Context) zerolog.Context {
 	return ctx
 }
 
-// processArgs handles the different argument formats for log messages
+// processArgs formats the message printf-style. Every caller passes a
+// format plus its arguments (go vet checks them as printf wrappers); a
+// message without arguments is logged as is, so a literal % needs no
+// escaping. There is no key/value mode: picking a mode by whether msg
+// contains "%" mangled messages such as "100% done" and dropped odd args.
 func processArgs(evt *zerolog.Event, msg string, args ...interface{}) {
-	if len(args) > 0 && strings.Contains(msg, "%") {
+	if len(args) > 0 {
 		evt.Msgf(msg, args...)
-	} else if len(args) > 0 {
-		for i := 0; i < len(args); i += 2 {
-			if i+1 < len(args) {
-				evt = evt.Interface(fmt.Sprint(args[i]), args[i+1])
-			}
-		}
-		evt.Msg(msg)
-	} else {
-		evt.Msg(msg)
+		return
 	}
+	evt.Msg(msg)
 }
 
 // Debug logs a debug message
