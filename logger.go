@@ -30,7 +30,7 @@ var (
 
 // Config defines configuration options for the logger
 type Config struct {
-	Level      string    // Log level: debug, info, warn, error, fatal, panic
+	Level      string    // Log level name: trace, debug, info, warn(ing), error, fatal, panic, disabled
 	Pretty     bool      // Enable pretty (human-readable) logging
 	WithCaller bool      // Include caller information in logs as a custom field
 	TimeFormat string    // Timestamp format
@@ -100,9 +100,11 @@ func InitLogger(cfg Config) {
 	})
 }
 
-// parseLevel maps a level name (case-insensitive; also "trace", "warning",
-// "disabled") to a zerolog level. An empty name is info; an unknown one is
-// info plus an error.
+// parseLevel maps a level name (case-insensitive; the Levels keys plus
+// "trace", "warning" and "disabled") to a zerolog level. An empty name is
+// info; anything else, numbers included, is info plus an error. zerolog
+// itself would take any integer as a custom level, and one above panic
+// silently turns off every message, the unknown-level warning too.
 func parseLevel(name string) (zerolog.Level, error) {
 	name = strings.ToLower(strings.TrimSpace(name))
 	switch name {
@@ -110,15 +112,15 @@ func parseLevel(name string) (zerolog.Level, error) {
 		return zerolog.InfoLevel, nil
 	case "warning":
 		return zerolog.WarnLevel, nil
+	case "trace":
+		return zerolog.TraceLevel, nil
+	case "disabled":
+		return zerolog.Disabled, nil
 	}
 	if lvl, ok := Levels[name]; ok {
 		return lvl, nil
 	}
-	lvl, err := zerolog.ParseLevel(name)
-	if err != nil || lvl == zerolog.NoLevel {
-		return zerolog.InfoLevel, fmt.Errorf("unknown log level %q", name)
-	}
-	return lvl, nil
+	return zerolog.InfoLevel, fmt.Errorf("unknown log level %q", name)
 }
 
 // GetLogger returns a contextualized logger with the component field set

@@ -59,7 +59,11 @@ func TestParseLevel(t *testing.T) {
 			t.Errorf("parseLevel(%q) = %v, %v; want %v", in, got, err, want)
 		}
 	}
-	if got, err := parseLevel("verbose"); err == nil || got != zerolog.InfoLevel {
-		t.Errorf("parseLevel(verbose) = %v, %v; want info and an error", got, err)
+	// F113: numbers are refused too; zerolog would take "8" as a custom
+	// level above panic and log nothing at all.
+	for _, in := range []string{"verbose", "8", "10", "100", "-5", "1"} {
+		if got, err := parseLevel(in); err == nil || got != zerolog.InfoLevel {
+			t.Errorf("parseLevel(%q) = %v, %v; want info and an error", in, got, err)
+		}
 	}
 }
